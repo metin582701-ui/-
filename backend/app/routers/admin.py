@@ -1,4 +1,5 @@
 import base64
+import datetime
 import io
 import mimetypes
 
@@ -10,6 +11,7 @@ from .. import models, schemas
 from ..database import get_db
 from ..deps import require_admin, ADMIN_COOKIE_NAME
 from ..security import verify_password, hash_password, create_session_token, COOKIE_SECURE
+from ..ws_manager import manager
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -145,4 +147,22 @@ def reset_employee_password(
         raise HTTPException(404, "社員が見つかりません")
     employee.password_hash = hash_password(new_password)
     db.commit()
+    return {"ok": True}
+
+
+@router.delete("/employees/{employee_id}/presence")
+async def admin_clear_presence(employee_id: str, db: Session = Depends(get_db), _: bool = Depends(require_admin)):
+    """管理者が、退室し忘れている社員のアイコンを強制的に消す。"""
+    employee = db.get(models.Employee, employee_id)
+    if not employee:
+        raise HTTPException(404, "社員が見つかりません")
+    old_floor_id = employee.current_floor_id
+    employee.current_floor_id = None
+    employee.current_x = None
+    employee.current_y = None
+    employee.position_updated_at = datetime.datetime.utcnow()
+    db.commit()
+
+    if old_floor_id:
+        await manager.broadcast("presence_updated", {"employee_id": employee.id, "floor_id": old_floor_id})
     return {"ok": True}

@@ -108,4 +108,6 @@ export const api = {
       `/api/admin/employees/${employeeId}/reset-password?new_password=${encodeURIComponent(newPassword)}`,
       { method: 'PUT' },
     ),
+  adminClearPresence: (employeeId: string) =>
+    request<{ ok: boolean }>(`/api/admin/employees/${employeeId}/presence`, { method: 'DELETE' }),
 }

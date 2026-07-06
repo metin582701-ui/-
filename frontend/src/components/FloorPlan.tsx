@@ -18,6 +18,8 @@ type Props = {
   onRoomClick?: (room: Room) => void
   onBackgroundClick?: (x: number, y: number) => void
   onMyIconContextMenu?: () => void
+  /** 設定時、全員のアイコン右クリックでこれが呼ばれる(管理者モード用: 他人の退室し忘れを解除できる) */
+  onAdminIconContextMenu?: (employee: Employee) => void
   onRoomMoved?: (roomId: string, x: number, y: number) => void
   onRoomResized?: (roomId: string, w: number, h: number) => void
   onRoomDeleted?: (roomId: string) => void
@@ -37,6 +39,7 @@ export function FloorPlan({
   onRoomClick,
   onBackgroundClick,
   onMyIconContextMenu,
+  onAdminIconContextMenu,
   onRoomMoved,
   onRoomResized,
   onRoomDeleted,
@@ -204,18 +207,22 @@ export function FloorPlan({
       {presence.map((emp) => {
         if (emp.current_x == null || emp.current_y == null) return null
         const isMine = emp.id === myEmployeeId
+        const handleContextMenu = onAdminIconContextMenu
+          ? (e: React.MouseEvent) => {
+              e.preventDefault()
+              onAdminIconContextMenu(emp)
+            }
+          : isMine
+            ? (e: React.MouseEvent) => {
+                e.preventDefault()
+                onMyIconContextMenu?.()
+              }
+            : undefined
         return (
           <g
             key={emp.id}
-            onContextMenu={
-              isMine
-                ? (e) => {
-                    e.preventDefault()
-                    onMyIconContextMenu?.()
-                  }
-                : undefined
-            }
-            style={{ cursor: isMine ? 'pointer' : 'default' }}
+            onContextMenu={handleContextMenu}
+            style={{ cursor: isMine || onAdminIconContextMenu ? 'pointer' : 'default' }}
           >
             <foreignObject x={emp.current_x - ICON_SIZE / 2} y={emp.current_y - ICON_SIZE / 2} width={ICON_SIZE} height={ICON_SIZE}>
               <div

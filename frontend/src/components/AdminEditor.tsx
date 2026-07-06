@@ -3,6 +3,7 @@ import { api } from '../api/client'
 import type { Employee, Floor, Room } from '../api/types'
 import { FloorPlan } from './FloorPlan'
 import { IconAvatar } from './IconAvatar'
+import { useRealtime } from '../hooks/useRealtime'
 
 type Mode = 'select' | 'add_room'
 
@@ -11,6 +12,7 @@ export function AdminEditor({ onLogout }: { onLogout: () => void }) {
   const [floorId, setFloorId] = useState('8F')
   const [floor, setFloor] = useState<Floor | null>(null)
   const [rooms, setRooms] = useState<Room[]>([])
+  const [presence, setPresence] = useState<Employee[]>([])
   const [mode, setMode] = useState<Mode>('select')
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -29,12 +31,14 @@ export function AdminEditor({ onLogout }: { onLogout: () => void }) {
 
   const load = useCallback(async () => {
     try {
-      const [f, r] = await Promise.all([api.getFloor(floorId), api.listRooms(floorId)])
+      const [f, r, p] = await Promise.all([api.getFloor(floorId), api.listRooms(floorId), api.listFloorPresence(floorId)])
       setFloor(f)
       setRooms(r)
+      setPresence(p)
     } catch {
       setFloor(null)
       setRooms([])
+      setPresence([])
     }
   }, [floorId])
 
@@ -42,6 +46,13 @@ export function AdminEditor({ onLogout }: { onLogout: () => void }) {
     load()
     setSelectedRoom(null)
   }, [load])
+
+  useRealtime((e) => {
+    if (e.event === 'presence_updated') {
+      const p = e.payload as { floor_id?: string }
+      if (p.floor_id === floorId) load()
+    }
+  })
 
   useEffect(() => {
     loadFloorList()
@@ -129,6 +140,12 @@ export function AdminEditor({ onLogout }: { onLogout: () => void }) {
     setMessage('パスワードをリセットしました')
   }
 
+  async function handleForceCheckout(employee: Employee) {
+    if (!confirm(`${employee.name} さんを退室扱いにしますか?(アイコンが消えます)`)) return
+    await api.adminClearPresence(employee.id)
+    await load()
+  }
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', height: '100vh', minHeight: 0 }}>
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -189,13 +206,14 @@ export function AdminEditor({ onLogout }: { onLogout: () => void }) {
             <FloorPlan
               floor={floor}
               rooms={rooms}
-              presence={[]}
+              presence={presence}
               selectedRoomId={selectedRoom?.id ?? null}
               onBackgroundClick={handleBackgroundClick}
               onRoomClick={mode === 'select' ? (r) => setSelectedRoom(r) : undefined}
               onRoomMoved={handleRoomMoved}
               onRoomResized={handleRoomResized}
               onRoomDeleted={handleRoomDeleted}
+              onAdminIconContextMenu={handleForceCheckout}
               editableRooms={mode === 'select'}
             />
           ) : (
@@ -239,6 +257,7 @@ export function AdminEditor({ onLogout }: { onLogout: () => void }) {
           </div>
           <p style={{ fontSize: 12, color: 'var(--text)', marginTop: 6 }}>
             「選択/ドラッグ移動」モードで会議室・テーブルのボタンをドラッグして位置調整、ダブルクリックしたままドラッグでサイズ変更、右クリックで削除できます。
+            社員のアイコンを右クリックすると、退室し忘れている人を強制的に退室させられます。
           </p>
         </section>
 
