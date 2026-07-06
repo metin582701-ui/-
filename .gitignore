@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+backend/data.db
+backend/app/uploads/
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+backend/frontend_dist/
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+
+# 調査用スクラッチ(参考として残すが、生成物は除外)
+scripts/out/
+
+# 社内の実レイアウトファイル(容量・機密性の観点でリポジトリには含めない)
+Data/
+
